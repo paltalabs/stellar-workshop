@@ -22,8 +22,8 @@ const sorobanServer = new rpc.Server("https://soroban-testnet.stellar.org");
 
 // Soroswap SDK configuration
 const soroswapSDK = new SoroswapSDK({
-  apiKey: "sk_555cf339752c4efe09de45f9696332e83a8f83f02768796b11b3c055d0a667a8", // Replace with your actual API key
-  baseUrl: "https://soroswap-api-staging-436722401508.us-central1.run.app",
+  apiKey: "sk_24df259901008db1122f5a4ed0aa04a6337570656626938b429ad715770e50f3", // Replace with your actual API key
+  baseUrl: "http://localhost:4000",
   defaultNetwork: SupportedNetworks.TESTNET,
   timeout: 30000,
 });
