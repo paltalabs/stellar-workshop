@@ -5,7 +5,6 @@
   "author": "coderipper",
   "license": "MIT",
   "scripts": {
-    "workshop": "ts-node src/assetsOnHorizon.ts",
     "soroswap": "ts-node src/soroswap.ts"
   },
   "dependencies": {
