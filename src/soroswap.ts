@@ -11,6 +11,9 @@ import {
   StrKey,
   hash,
   Account,
+  Contract,
+  Address,
+  scValToNative,
 } from "@stellar/stellar-sdk";
 import { SoroswapSDK, SupportedNetworks, TradeType, SupportedProtocols } from "@soroswap/sdk";
 import { config } from "dotenv";
@@ -27,17 +30,6 @@ const soroswapSDK = new SoroswapSDK({
   defaultNetwork: SupportedNetworks.TESTNET,
   timeout: 30000,
 });
-
-/**
- * 🌟 SOROSWAP WORKSHOP 🌟
- * 
- * This script demonstrates the complete Soroswap integration workflow:
- * 1. Create RIO token on Stellar Horizon
- * 2. Issue tokens to Token Holder
- * 3. Deploy RIO asset to Soroban
- * 4. Add liquidity using Soroswap SDK
- * 5. Perform trading using Soroswap SDK
- */
 
 // Helper function to display countdown
 async function countdown(seconds: number, message: string = "Next step in") {
@@ -131,140 +123,166 @@ function getAssetContractId(asset: Asset): string {
 }
 
 async function soroswapWorkshop() {
-  console.log("🚀 Starting Soroswap Workshop for Rio University Students!");
+  console.log("🚀 Starting Soroswap Workshop!");
   console.log("=" .repeat(70));
 
   try {
     // ========================================
-    // STEP 1: CREATE WALLETS
+    // STEP 1: CREATE WALLET
     // ========================================
-    console.log("\n📝 STEP 1: Creating Wallets");
+    console.log("\n📝 STEP 1: Creating a Wallet");
     console.log("=".repeat(40));
 
     // Create the asset creator wallet
-    const assetCreatorWallet = Keypair.random();
-    console.log("🏛️  Asset Creator Wallet created:");
-    console.log(`   Public Key: ${assetCreatorWallet.publicKey()}`);
-
-    // Create the token holder wallet (will add liquidity)
-    const tokenHolderWallet = Keypair.random();
-    console.log("\n💰 Token Holder Wallet created:");
-    console.log(`   Public Key: ${tokenHolderWallet.publicKey()}`);
-
-    // Create the trader wallet (will perform swaps)
-    const traderWallet = Keypair.random();
-    console.log("\n🏪 Trader Wallet created:");
-    console.log(`   Public Key: ${traderWallet.publicKey()}`);
+    const userWallet = Keypair.random();
+    console.log("🏛️  userWallet created:");
+    console.log(`   Public Key: ${userWallet.publicKey()}`);
+    console.log(`   Private Key: ${userWallet.secret()}`);
 
     // ========================================
-    // STEP 2: FUND WALLETS
+    // STEP 2: FUND WALLET
     // ========================================
-    console.log("\n💳 STEP 2: Funding Wallets with Testnet XLM");
+    console.log("\n💳 STEP 2: Funding Wallet with Testnet XLM");
     console.log("=".repeat(40));
 
     console.log("🤖 Funding wallets with Friendbot...");
-    await Promise.all([
-      horizonServer.friendbot(assetCreatorWallet.publicKey()).call(),
-      horizonServer.friendbot(tokenHolderWallet.publicKey()).call(),
-      horizonServer.friendbot(traderWallet.publicKey()).call(),
-    ]);
-    console.log("✅ All wallets funded successfully");
+    await horizonServer.friendbot(userWallet.publicKey()).call(),
+    console.log("✅ Wallet funded successfully");
 
     // ========================================
-    // STEP 3: CREATE AND ISSUE RIO TOKEN
+    // STEP 3: SWAP XLM TO SOROSWAP USDC
     // ========================================
-    console.log("\n🪙 STEP 3: Creating and Issuing RIO Token");
-    console.log("=".repeat(40));
-
-    // Create the RIO asset
-    const RIO_ASSET = new Asset("RIO", assetCreatorWallet.publicKey());
-    console.log(`🏗️  RIO Asset created: ${RIO_ASSET.code}:${RIO_ASSET.issuer}`);
-
-    // Token Holder creates trustline to RIO
-    console.log("🤝 Creating trustline from Token Holder to RIO...");
-    let tokenHolderAccount = await horizonServer.loadAccount(tokenHolderWallet.publicKey());
     
-    const trustlineTransaction = new TransactionBuilder(tokenHolderAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: Networks.TESTNET
-    })
-    .addOperation(Operation.changeTrust({
-      asset: RIO_ASSET,
-      limit: "10000000" // 10M RIO limit
-    }))
-    .setTimeout(30)
-    .build();
-
-    trustlineTransaction.sign(tokenHolderWallet);
-    await horizonServer.submitTransaction(trustlineTransaction);
-    console.log("✅ Trustline created successfully");
-
-    // Issue 2M RIO tokens to Token Holder
-    console.log("🏭 Issuing 2,000,000 RIO tokens to Token Holder...");
-    
-    let assetCreatorAccount = await horizonServer.loadAccount(assetCreatorWallet.publicKey());
-    
-    const issueTransaction = new TransactionBuilder(assetCreatorAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: Networks.TESTNET
-    })
-    .addOperation(Operation.payment({
-      destination: tokenHolderWallet.publicKey(),
-      asset: RIO_ASSET,
-      amount: "2000000" // 2M RIO tokens
-    }))
-    .setTimeout(30)
-    .build();
-
-    issueTransaction.sign(assetCreatorWallet);
-    await horizonServer.submitTransaction(issueTransaction);
-    console.log("✅ RIO tokens issued successfully");
-
-    // ========================================
-    // STEP 4: DEPLOY RIO TO SOROBAN
-    // ========================================
-    console.log("\n🚀 STEP 4: Deploying RIO Asset to Soroban");
-    console.log("=".repeat(40));
-
-    // Get fresh account for deployment
-    tokenHolderAccount = await horizonServer.loadAccount(tokenHolderWallet.publicKey());
-    
-    // Deploy RIO asset to Soroban
-    const rioContractId = await deployStellarAsset(
-      RIO_ASSET,
-      tokenHolderAccount,
-      tokenHolderWallet
-    );
-    
-    console.log(`✅ RIO deployed to Soroban with Contract ID: ${rioContractId}`);
-
     // Get XLM contract ID for Soroban
     const xlmContractId = Asset.native().contractId(Networks.TESTNET);
     console.log(`📋 XLM Contract ID: ${xlmContractId}`);
+    const soroswapUSDC = "CDWEFYYHMGEZEFC5TBUDXM3IJJ7K7W5BDGE765UIYQEV4JFWDOLSTOEK"
+    console.log("soroswapWorkshop | soroswapUSDC:", soroswapUSDC)
+
+    const swapAmount = BigInt(10_0000000)
+    let receivedAmount = BigInt(0)
+
+    try {
+      // Step 1: Get quote from Soroswap SDK
+      console.log("📊 Getting quote from Soroswap SDK...");
+      const quoteResponse = await soroswapSDK.quote(
+        {
+          assetIn: xlmContractId,
+          assetOut: soroswapUSDC,
+          amount: swapAmount,
+          tradeType: TradeType.EXACT_IN,
+          protocols: [SupportedProtocols.SOROSWAP],
+          slippageBps: 500, // 5% slippage
+        },
+        SupportedNetworks.TESTNET
+      );
+      console.log("🚀 | soroswapWorkshop | quoteResponse:", quoteResponse)
+
+      console.log(`💡 Quote received:`);
+      console.log(`   Input: ${Number(quoteResponse.amountIn) / 10000000} XLM`);
+      console.log(`   Output: ${Number(quoteResponse.amountOut) / 10000000} USDC`);
+      console.log(`   Price Impact: ${quoteResponse.priceImpactPct}%`);
+      console.log(`   Platform: ${quoteResponse.platform}`);
+
+      // Step 2: Build transaction from quote
+      console.log("🏗️  Building transaction from quote...");
+      
+      const buildResponse = await soroswapSDK.build(
+        {
+          quote: quoteResponse,
+          from: userWallet.publicKey(),
+        },
+        SupportedNetworks.TESTNET
+      );
+      console.log("🚀 | soroswapWorkshop | buildResponse:", buildResponse)
+      console.log("📄 Transaction XDR received from Soroswap SDK");
+
+      // Step 3: Sign and submit transaction
+      const swapTransaction = TransactionBuilder.fromXDR(
+        buildResponse.xdr,
+        Networks.TESTNET
+      );
+      
+      swapTransaction.sign(userWallet);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Submit the transaction
+      const swapResult = await soroswapSDK.send(swapTransaction.toXDR(), false, SupportedNetworks.TESTNET);
+
+      console.log("return value", swapResult.returnValue)
+      const returnValue = swapResult.returnValue._value[1]._value._attributes.lo._value
+      console.log("🚀 | soroswapWorkshop | returnValue:", returnValue)
+      receivedAmount = BigInt(returnValue)
+
+    } catch (error) {
+      console.log("🚀 | soroswapWorkshop | error:", error)
+      console.log("⚠️  Using simulated swap (SDK may require API key or pools may not exist)");
+      console.log("✅ Swap conceptually executed: XLM → RIO");
+    }
+
+
+
+    // Getting balances
+    let xlmBalance = 0
+    let usdcBalance = 0
+    try {
+      const usdcContract = new Contract(soroswapUSDC)
+      const op = usdcContract.call("balance", ...[new Address(userWallet.publicKey()).toScVal()])
+
+      const loadedAccount = await sorobanServer.getAccount(userWallet.publicKey())
+      const balanceTx = new TransactionBuilder(loadedAccount, {
+        fee: "2000",
+        networkPassphrase: Networks.TESTNET
+      }).addOperation(op).setTimeout(300).build()
+
+      const simulated = await sorobanServer.simulateTransaction(balanceTx)
+
+      const parsed = scValToNative((simulated as any).result.retval)
+      usdcBalance = parsed
+
+
+      const xlmContract = new Contract(xlmContractId)
+      const op2 = xlmContract.call("balance", ...[new Address(userWallet.publicKey()).toScVal()])
+
+      const loadedAccount2 = await sorobanServer.getAccount(userWallet.publicKey())
+      const balanceTx2 = new TransactionBuilder(loadedAccount2, {
+        fee: "2000",
+        networkPassphrase: Networks.TESTNET
+      }).addOperation(op2).setTimeout(300).build()
+
+      const simulated2 = await sorobanServer.simulateTransaction(balanceTx2)
+
+      const parsed2 = scValToNative((simulated2 as any).result.retval)
+      xlmBalance = parsed2
+      
+    } catch (error) {
+      console.log("🚀 | soroswapWorkshop | error:", error)
+      
+    }
+
+    console.log("USDC BALANCE", usdcBalance)
+    console.log("XLM BALANCE", xlmBalance)
+
 
     // ========================================
-    // STEP 5: ADD LIQUIDITY USING SOROSWAP SDK
+    // ADD LIQUIDITY USING SOROSWAP SDK
     // ========================================
-    console.log("\n🏊 STEP 5: Adding Liquidity using Soroswap SDK");
-    console.log("=".repeat(40));
 
-    const liquidityAmountXLM = BigInt("8000" + "0".repeat(7)); // 8000 XLM in stroops
-    const liquidityAmountRIO = BigInt("1000000" + "0".repeat(7)); // 1M RIO tokens
-
-    console.log(`💰 Adding liquidity:`);
-    console.log(`   ${liquidityAmountXLM / BigInt(10000000)} XLM`);
-    console.log(`   ${liquidityAmountRIO / BigInt(10000000)} RIO`);
-    console.log(`   Initial rate: 1 XLM = 125 RIO`);
+    const liquidityAmountXLM = swapAmount
+    console.log("🚀 | soroswapWorkshop | liquidityAmountXLM:", liquidityAmountXLM)
+    const liquidityAmountUSDC = receivedAmount
+    console.log("🚀 | soroswapWorkshop | liquidityAmountUSDC:", liquidityAmountUSDC)
 
     try {
       // Add liquidity using Soroswap SDK
       const addLiquidityResponse = await soroswapSDK.addLiquidity(
         {
           assetA: xlmContractId,
-          assetB: rioContractId,
+          assetB: soroswapUSDC,
           amountA: liquidityAmountXLM,
-          amountB: liquidityAmountRIO,
-          to: tokenHolderWallet.publicKey(),
+          amountB: liquidityAmountUSDC,
+          to: userWallet.publicKey(),
           slippageBps: "500", // 5% slippage tolerance
         },
         SupportedNetworks.TESTNET
@@ -278,189 +296,32 @@ async function soroswapWorkshop() {
         Networks.TESTNET
       );
       
-      liquidityTransaction.sign(tokenHolderWallet);
+      liquidityTransaction.sign(userWallet);
       
+      const addLiquiditySendResponse = await soroswapSDK.send(liquidityTransaction.toXDR(), false, SupportedNetworks.TESTNET)
+      console.log("🚀 | soroswapWorkshop | addLiquiditySendResponse:", addLiquiditySendResponse)
       // Submit the transaction
-      const liquidityResult = await sorobanServer.sendTransaction(liquidityTransaction);
-      console.log(`✅ Liquidity transaction submitted: ${liquidityResult.hash}`);
+      // const liquidityResult = await sorobanServer.sendTransaction(liquidityTransaction);
+      // console.log(`✅ Liquidity transaction submitted: ${liquidityResult.hash}`);
       
-      // Wait for confirmation
-      let getLiquidityResponse = await sorobanServer.getTransaction(liquidityResult.hash);
-      while (getLiquidityResponse.status === "NOT_FOUND") {
-        console.log("⏳ Waiting for liquidity transaction confirmation...");
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        getLiquidityResponse = await sorobanServer.getTransaction(liquidityResult.hash);
-      }
+      // // Wait for confirmation
+      // let getLiquidityResponse = await sorobanServer.getTransaction(liquidityResult.hash);
+      // while (getLiquidityResponse.status === "NOT_FOUND") {
+      //   console.log("⏳ Waiting for liquidity transaction confirmation...");
+      //   await new Promise(resolve => setTimeout(resolve, 2000));
+      //   getLiquidityResponse = await sorobanServer.getTransaction(liquidityResult.hash);
+      // }
       
-      if (getLiquidityResponse.status === "SUCCESS") {
-        console.log("✅ Liquidity added successfully to Soroswap!");
-      } else {
-        console.log(`⚠️  Liquidity transaction status: ${getLiquidityResponse.status}`);
-      }
+      // if (getLiquidityResponse.status === "SUCCESS") {
+      //   console.log("✅ Liquidity added successfully to Soroswap!");
+      // } else {
+      //   console.log(`⚠️  Liquidity transaction status: ${getLiquidityResponse.status}`);
+      // }
       
     } catch (error) {
       console.log("⚠️  Using simulated liquidity addition (SDK may require API key)");
       console.log("✅ Liquidity conceptually added to XLM/RIO pool");
     }
-
-    // ========================================
-    // PAUSE: OBSERVE THE LIQUIDITY POOL
-    // ========================================
-    await countdown(10, "Observing liquidity pool status - Next step in");
-
-    // ========================================
-    // STEP 6: TRADER PREPARES FOR SWAP
-    // ========================================
-    console.log("\n🤝 STEP 6: Trader Creates Trustline to RIO");
-    console.log("=".repeat(40));
-
-    // Trader creates trustline to RIO
-    console.log("🤝 Creating trustline from Trader to RIO asset...");
-    
-    let traderAccount = await horizonServer.loadAccount(traderWallet.publicKey());
-    
-    const traderTrustlineTransaction = new TransactionBuilder(traderAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: Networks.TESTNET
-    })
-    .addOperation(Operation.changeTrust({
-      asset: RIO_ASSET,
-      limit: "1000000" // 1M RIO limit
-    }))
-    .setTimeout(30)
-    .build();
-
-    traderTrustlineTransaction.sign(traderWallet);
-    await soroswapSDK.send(traderTrustlineTransaction.toXDR(), false, SupportedNetworks.TESTNET);
-    console.log("✅ Trader trustline to RIO created");
-
-    // ========================================
-    // STEP 7: TRADING USING SOROSWAP SDK
-    // ========================================
-    console.log("\n🔄 STEP 7: Trading using Soroswap SDK");
-    console.log("=".repeat(40));
-
-    const swapAmountXLM = BigInt("500" + "0".repeat(7)); // 500 XLM in stroops
-    
-    console.log(`🔄 Preparing to swap:`);
-    console.log(`   Sending: ${swapAmountXLM / BigInt(10000000)} XLM`);
-    console.log(`   Receiving: RIO tokens (market rate)`);
-
-    try {
-      
-      // Step 1: Get quote from Soroswap SDK
-      console.log("📊 Getting quote from Soroswap SDK...");
-      
-      const quoteResponse = await soroswapSDK.quote(
-        {
-          assetIn: xlmContractId,
-          assetOut: rioContractId,
-          amount: swapAmountXLM,
-          tradeType: TradeType.EXACT_IN,
-          protocols: [SupportedProtocols.SOROSWAP],
-          slippageBps: 500, // 5% slippage
-        },
-        SupportedNetworks.TESTNET
-      );
-      console.log("🚀 | soroswapWorkshop | quoteResponse:", quoteResponse)
-
-      console.log(`💡 Quote received:`);
-      console.log(`   Input: ${Number(quoteResponse.amountIn) / 10000000} XLM`);
-      console.log(`   Output: ${Number(quoteResponse.amountOut) / 10000000} RIO`);
-      console.log(`   Price Impact: ${quoteResponse.priceImpactPct}%`);
-      console.log(`   Platform: ${quoteResponse.platform}`);
-
-      // Step 2: Build transaction from quote
-      console.log("🏗️  Building transaction from quote...");
-      
-      const buildResponse = await soroswapSDK.build(
-        {
-          quote: quoteResponse,
-          from: traderWallet.publicKey(),
-          to: traderWallet.publicKey(),
-        },
-        SupportedNetworks.TESTNET
-      );
-      console.log("🚀 | soroswapWorkshop | buildResponse:", buildResponse)
-      console.log("📄 Transaction XDR received from Soroswap SDK");
-
-      // Step 3: Sign and submit transaction
-      const swapTransaction = TransactionBuilder.fromXDR(
-        buildResponse.xdr,
-        Networks.TESTNET
-      );
-      
-      swapTransaction.sign(traderWallet);
-      
-      // Submit the transaction
-      const swapResult = await soroswapSDK.send(swapTransaction.toXDR(), false, SupportedNetworks.TESTNET);
-      console.log(`✅ Swap transaction submitted: ${swapResult}`);
-
-    } catch (error) {
-      console.log("🚀 | soroswapWorkshop | error:", error)
-      console.log("⚠️  Using simulated swap (SDK may require API key or pools may not exist)");
-      console.log("✅ Swap conceptually executed: XLM → RIO");
-    }
-
-    // ========================================
-    // STEP 8: FINAL BALANCES
-    // ========================================
-    console.log("\n📊 STEP 8: Final Balances");
-    console.log("=".repeat(40));
-
-    // Check final balances
-    const finalTraderAccount = await horizonServer.loadAccount(traderWallet.publicKey());
-    const finalTokenHolderAccount = await horizonServer.loadAccount(tokenHolderWallet.publicKey());
-    
-    console.log(`\n💰 Final Trader balances:`);
-    finalTraderAccount.balances.forEach(balance => {
-      if (balance.asset_type === 'native') {
-        console.log(`   ${balance.balance} XLM`);
-      } else if (balance.asset_type === 'credit_alphanum4') {
-        console.log(`   ${balance.balance} ${balance.asset_code}`);
-      }
-    });
-
-    console.log(`\n💰 Final Token Holder balances:`);
-    finalTokenHolderAccount.balances.forEach(balance => {
-      if (balance.asset_type === 'native') {
-        console.log(`   ${balance.balance} XLM`);
-      } else if (balance.asset_type === 'credit_alphanum4') {
-        console.log(`   ${balance.balance} ${balance.asset_code}`);
-      }
-    });
-
-    // ========================================
-    // SOROSWAP WORKSHOP SUMMARY
-    // ========================================
-    console.log("\n" + "=".repeat(70));
-    console.log("🎓 SOROSWAP WORKSHOP SUMMARY");
-    console.log("=".repeat(70));
-    
-    console.log("\n✨ What we accomplished:");
-    console.log("   1. ✅ Created 3 wallets (Asset Creator, Token Holder, Trader)");
-    console.log("   2. ✅ Created and issued RIO token on Stellar");
-    console.log("   3. ✅ Deployed RIO asset to Soroban");
-    console.log("   4. ✅ Added liquidity to Soroswap using SDK");
-    console.log("   5. ✅ Performed asset swap using Soroswap SDK");
-    
-    console.log("\n🔗 Important contract addresses:");
-    console.log(`   RIO Asset: ${RIO_ASSET.code}:${RIO_ASSET.issuer}`);
-    console.log(`   RIO Contract ID: ${rioContractId}`);
-    console.log(`   XLM Contract ID: ${xlmContractId}`);
-    console.log(`   Token Holder: ${tokenHolderWallet.publicKey()}`);
-    console.log(`   Trader: ${traderWallet.publicKey()}`);
-    
-    console.log("\n🌟 Key learning points:");
-    console.log("   • Stellar assets can be deployed to Soroban as smart contracts");
-    console.log("   • Soroswap SDK provides easy integration for DeFi operations");
-    console.log("   • Quote → Build → Sign → Submit workflow for trading");
-    console.log("   • Liquidity provision enables decentralized trading");
-    console.log("   • All operations are executed on Stellar's Soroban network");
-    
-    console.log("\n🚀 Soroswap Workshop completed successfully!");
-    console.log("🌐 Explore Soroswap: https://soroswap.finance");
-    console.log("📖 Learn more: https://docs.soroswap.finance");
 
   } catch (error) {
     console.error("\n❌ Workshop Error:", error);
