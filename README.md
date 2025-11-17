@@ -2,6 +2,8 @@
 
 A comprehensive educational workshop demonstrating Stellar blockchain development with DeFi protocols including Soroswap and DeFindex integrations.
 
+[Presentation](https://docs.google.com/presentation/d/1cUjfgUhXYQbJa-ROruWzK-maPqFVjs6Ty4FjJdzIa7k/edit?usp=sharing)
+
 ## Overview
 
 This repository contains complete workshops that demonstrate DeFi operations on the Stellar blockchain and Soroban smart contract platform:
