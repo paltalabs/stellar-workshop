@@ -10,8 +10,9 @@ This repository contains complete workshops that demonstrate DeFi operations on 
 
 1. **Soroswap Workshop** (`src/soroswap.ts`) - DEX integration and token swapping
 2. **DeFindex Workshop** (`src/defindex.ts`) - Vault creation and asset management
+3. **Direct Contract Calls** (`src/soroswap-typescript.ts`, `src/defindex-typescript.ts`) - Same flows without SDKs, using direct Stellar SDK contract calls
 
-The workshops demonstrate professional DeFi development patterns using official SDKs on Stellar testnet.
+The workshops demonstrate professional DeFi development patterns using official SDKs on Stellar testnet. The direct contract call versions show how to interact with contracts at the lowest level without SDK/API dependencies.
 
 ## What You'll Learn
 
@@ -86,6 +87,20 @@ This workshop demonstrates:
 - Creating additional depositor wallets
 - Making deposits to existing vaults
 
+### Run Direct Contract Call Workshops (No SDKs)
+
+**Soroswap Direct** (`src/soroswap-typescript.ts`):
+```bash
+npm run soroswap-direct
+```
+
+**DeFindex Direct** (`src/defindex-typescript.ts`):
+```bash
+DEFINDEX_FACTORY=your_factory_address npm run defindex-direct
+```
+
+These versions execute the same flows but interact directly with smart contracts using only the Stellar SDK—no Soroswap/DeFindex SDKs or APIs. Perfect for understanding contract interactions at the lowest level and building custom transaction logic.
+
 ## Workshop Structure
 
 ### Soroswap Workshop Flow
@@ -135,8 +150,10 @@ The repository includes Soroban smart contracts written in Rust:
 ```
 stellar-workshop/
 ├── src/
-│   ├── soroswap.ts      # Soroswap DEX workshop
-│   └── defindex.ts      # DeFindex vault workshop
+│   ├── soroswap.ts           # Soroswap DEX workshop (uses SDK)
+│   ├── defindex.ts           # DeFindex vault workshop (uses SDK)
+│   ├── soroswap-typescript.ts   # Direct contract calls (no SDK)
+│   └── defindex-typescript.ts   # Direct contract calls (no SDK)
 ├── contracts/           # Soroban smart contracts (Rust)
 │   ├── defindex-zap/   # DeFindex integration contract
 │   ├── soroswap-auth/  # Soroswap authorization contract

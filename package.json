@@ -11,7 +11,9 @@
   },
   "scripts": {
     "soroswap": "ts-node src/soroswap.ts",
-    "defindex": "ts-node src/defindex.ts"
+    "defindex": "ts-node src/defindex.ts",
+    "soroswap-direct": "ts-node src/soroswap-typescript.ts",
+    "defindex-direct": "ts-node src/defindex-typescript.ts"
   },
   "dependencies": {
     "@defindex/sdk": "^0.1.1",
